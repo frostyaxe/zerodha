@@ -17,8 +17,22 @@ from login import ZerodhaAccessToken
 import pandas as pd
 from stream import Stream
 
+from flask import Flask
+app = Flask(__name__)
 
-#from client import ClientZerodha
+app.secret_key = 'xyz'
+
+class Connection():
+    
+    def __init__(self):
+        self.__session = None
+
+    def set_session(self, session):
+        self.__session = session
+
+    def get_session(self):
+        return self.__session
+    
 def main():
     #print("ddf")
     #zerodha_access_token = []
@@ -71,17 +85,35 @@ def main():
             print(df1.iloc[count,0] , "tracker token doesnt exist")
         count+=1
     tracker_token[:] = (value for value in tracker_token if value != 1)
+   
+    return kite, access_token, tracker_token, instruments, df1, df2
+
+    
+@app.route('/')
+def start():
     stream_obj = Stream(kite = kite,zerodha_access_token = access_token,tracker_token = tracker_token,instruments = instruments,df1=df1,df2=df2)
     stream_obj.kws.on_ticks = stream_obj.on_ticks
     stream_obj.kws.on_connect = stream_obj.on_connect
     stream_obj.kws.on_close = stream_obj.on_close
-
+    stream_obj.kws.on_reconnect = stream_obj.on_reconnect
     stream_obj.kws.connect(threaded=True)
-
+    session.set_session(stream_obj)
     computation = Thread(target=stream_obj.computation)
     computation.start()
-
     computation.join()
-
+    
+    if stream_obj.kws.is_connected():
+        return "### connected"
+    else:
+        return "Unable to establish the connection!"
+    
+@app.route('/stop')
+def stop():
+    session.get_session().exit = 1
+    session.get_session().kws.close()
+    return "### Disconnected"
+    
 if __name__ == "__main__":
-    main()
+    kite, access_token, tracker_token, instruments, df1, df2 = main()
+    session = Connection()
+    app.run()
